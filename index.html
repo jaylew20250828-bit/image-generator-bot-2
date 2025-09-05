@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Generator Bot (Web版)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <h1>🎨 Image Generator Bot</h1>
+    <p>输入指令（支持: <code>!ping</code>, <code>!imagine prompt</code>）</p>
+    <input id="command" type="text" placeholder="输入命令...">
+    <button id="run">运行</button>
+    <div id="output"></div>
+  </div>
+
+  <script>
+    document.getElementById('run').addEventListener('click', async () => {
+      const cmd = document.getElementById('command').value.trim();
+      const output = document.getElementById('output');
+
+      if (!cmd) {
+        output.textContent = "❌ 请输入命令";
+        return;
+      }
+
+      if (cmd.startsWith('!ping')) {
+        const res = await fetch('/api/ping');
+        const data = await res.json();
+        output.textContent = data.message;
+      } else if (cmd.startsWith('!imagine')) {
+        const prompt = cmd.replace('!imagine', '').trim();
+        const res = await fetch('/api/imagine?prompt=' + encodeURIComponent(prompt));
+        const data = await res.json();
+        if (data.image) {
+          output.innerHTML = `
+            <p>🖼️ 生成的图像: <strong>${prompt}</strong></p>
+            <img src="${data.image}" alt="生成的图像" style="max-width:100%; border-radius:8px; margin-top:1rem;">
+          `;
+        } else {
+          output.textContent = "⚠️ 图像生成失败: " + (data.error || "未知错误");
+        }
+      } else {
+        output.textContent = "❌ 未知命令";
+      }
+    });
+  </script>
+</body>
+</html>
