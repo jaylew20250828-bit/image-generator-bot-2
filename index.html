@@ -4,6 +4,48 @@
   <meta charset="UTF-8">
   <title>Image Generator Bot (Web版)</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* 内置一个 loading 动画 */
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      animation: spin 1s linear infinite;
+      margin: 6px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #history {
+      margin-top: 20px;
+      padding: 10px;
+      border-top: 1px solid #ccc;
+    }
+
+    .entry {
+      margin-bottom: 20px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+
+    .entry img {
+      max-width: 300px;
+      border-radius: 6px;
+      margin-top: 10px;
+      display: block;
+    }
+
+    .command {
+      font-weight: bold;
+      color: #2c3e50;
+    }
+  </style>
 </head>
 <body>
   <div class="app">
@@ -11,37 +53,74 @@
     <p>输入指令（支持: <code>!ping</code>, <code>!imagine prompt</code>）</p>
     <input id="command" type="text" placeholder="输入命令...">
     <button id="run">运行</button>
-    <div id="output"></div>
+    <div id="history"></div>
   </div>
 
   <script>
-    document.getElementById('run').addEventListener('click', async () => {
-      const cmd = document.getElementById('command').value.trim();
-      const output = document.getElementById('output');
+    const runBtn = document.getElementById('run');
+    const cmdInput = document.getElementById('command');
+    const historyDiv = document.getElementById('history');
 
+    function addEntry(content, isLoading = false) {
+      const entry = document.createElement('div');
+      entry.className = 'entry';
+
+      if (isLoading) {
+        entry.innerHTML = `
+          <div class="spinner"></div>
+          <p>⏳ 正在处理: <span class="command">${content}</span></p>
+        `;
+      } else {
+        entry.innerHTML = content;
+      }
+
+      historyDiv.prepend(entry); // 新结果放在最上面
+      return entry;
+    }
+
+    async function runCommand() {
+      const cmd = cmdInput.value.trim();
       if (!cmd) {
-        output.textContent = "❌ 请输入命令";
+        addEntry("❌ 请输入命令");
         return;
       }
 
-      if (cmd.startsWith('!ping')) {
-        const res = await fetch('/api/ping');
-        const data = await res.json();
-        output.textContent = data.message;
-      } else if (cmd.startsWith('!imagine')) {
-        const prompt = cmd.replace('!imagine', '').trim();
-        const res = await fetch('/api/imagine?prompt=' + encodeURIComponent(prompt));
-        const data = await res.json();
-        if (data.image) {
-          output.innerHTML = `
-            <p>🖼️ 生成的图像: <strong>${prompt}</strong></p>
-            <img src="${data.image}" alt="生成的图像" style="max-width:100%; border-radius:8px; margin-top:1rem;">
-          `;
+      const loadingEntry = addEntry(cmd, true);
+
+      try {
+        if (cmd.startsWith('!ping')) {
+          const res = await fetch('/api/ping');
+          const data = await res.json();
+          loadingEntry.innerHTML = `<p>✅ ${cmd} → ${data.message}</p>`;
+        } else if (cmd.startsWith('!imagine')) {
+          const prompt = cmd.replace('!imagine', '').trim();
+          const res = await fetch('/api/imagine?prompt=' + encodeURIComponent(prompt));
+          const data = await res.json();
+
+          if (data.image) {
+            loadingEntry.innerHTML = `
+              <p>🖼️ <span class="command">${cmd}</span></p>
+              <img src="${data.image}" alt="生成的图像">
+            `;
+          } else {
+            loadingEntry.innerHTML = `<p>⚠️ 图像生成失败: ${data.error || "未知错误"}</p>`;
+          }
         } else {
-          output.textContent = "⚠️ 图像生成失败: " + (data.error || "未知错误");
+          loadingEntry.innerHTML = `<p>❌ 未知命令: <span class="command">${cmd}</span></p>`;
         }
-      } else {
-        output.textContent = "❌ 未知命令";
+      } catch (err) {
+        console.error("前端错误:", err);
+        loadingEntry.innerHTML = `<p>⚠️ 请求失败: ${err.message}</p>`;
+      }
+    }
+
+    // 点击按钮执行
+    runBtn.addEventListener('click', runCommand);
+
+    // 按回车执行
+    cmdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        runCommand();
       }
     });
   </script>
