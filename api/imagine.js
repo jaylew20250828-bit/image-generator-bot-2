@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     const response = await client.images.generate({
       model: "gpt-image-1",
       prompt: prompt,
-      size: "512x512"
+      size: "1024x1024"
     });
 
     const imageUrl = response.data[0].url;
